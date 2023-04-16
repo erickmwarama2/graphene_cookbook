@@ -1,5 +1,6 @@
 import graphene
 from graphene_django import DjangoObjectType
+from graphene import relay
 
 from ingredients.models import Category, Ingredient
 
@@ -12,6 +13,25 @@ class IngredientType(DjangoObjectType):
     class Meta:
         model = Ingredient
         fields = ("id", "name", "notes", "category")
+
+class CategoryNode(graphene.ObjectType):
+    category_name = graphene.String()
+
+    class Meta:
+        interfaces = (graphene.Node, )
+
+    def resolve_category_name(instance, info):
+        return instance.name
+
+class CategoryConnection(relay.Connection):
+    total_count = graphene.Int()
+
+    class Meta:
+        node = CategoryNode
+
+
+    def resolve_total_count(instance, info):
+        return Category.objects.count()
 
 class IngredientMutation(graphene.Mutation):
     class Arguments:
@@ -48,6 +68,10 @@ class MyMutation(graphene.ObjectType):
 class Query(graphene.ObjectType):
     all_ingredients = graphene.List(IngredientType)
     category_by_name = graphene.Field(CategoryType, name=graphene.String(required=True))
+    categories = relay.ConnectionField(CategoryConnection)
+
+    def resolve_categories(root, info):
+        return Category.objects.all()
 
     def resolve_all_ingredients(root, info):
         return Ingredient.objects.select_related("category").all()
